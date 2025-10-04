@@ -30,12 +30,10 @@ class Command(BaseCommand):
         created_count = 0
         updated_count = 0
 
-        # Usuń stare wpisy pogodowe
         Weather.objects.all().delete()
         self.stdout.write(self.style.WARNING('Cleared old weather data'))
 
         for station in stations:
-            # Losuj warunek pogodowy na podstawie prawdopodobieństwa
             rand = random.randint(1, 100)
             cumulative = 0
             selected_weather = None
@@ -51,10 +49,8 @@ class Command(BaseCommand):
 
             weather_type, speed_impact, temp_min, temp_max = selected_weather
 
-            # Losowa temperatura w zakresie dla danego warunku
             temperature = round(random.uniform(temp_min, temp_max), 1)
 
-            # Losowa widoczność (w metrach)
             if weather_type == 'FOG':
                 visibility = random.randint(50, 500)
             elif weather_type in ['RAIN', 'SNOW', 'STORM']:
@@ -64,11 +60,9 @@ class Command(BaseCommand):
             else:
                 visibility = random.randint(2000, 8000)
 
-            # Dodaj małą losową wariancję do wpływu na prędkość
             speed_impact_actual = speed_impact + random.randint(-3, 3)
             speed_impact_actual = max(-50, min(0, speed_impact_actual))  # Ogranicz do -50..0
 
-            # Ważność prognozy: 3-8 godzin od teraz
             valid_hours = random.randint(3, 8)
             valid_until = timezone.now() + timedelta(hours=valid_hours)
 
@@ -83,7 +77,6 @@ class Command(BaseCommand):
                 )
                 created_count += 1
 
-                # Wyświetl kolorowy output w zależności od warunków
                 if weather_type in ['CLEAR', 'WIND']:
                     style = self.style.SUCCESS
                     icon = '☀️' if weather_type == 'CLEAR' else '💨'
@@ -107,7 +100,6 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f'Created: {created_count} weather conditions'))
         self.stdout.write(self.style.SUCCESS(f'For: {stations.count()} stations'))
 
-        # Statystyki pogody
         weather_stats = {}
         for weather_type, _, _, _, _ in weather_distribution:
             count = Weather.objects.filter(condition=weather_type).count()

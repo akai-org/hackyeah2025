@@ -2,7 +2,10 @@
 Serializers for transport app
 """
 from rest_framework import serializers
-from transport.models import Station, Route, RoutePoint, Journey
+from transport.models import (
+    Station, Route, RoutePoint, Journey,
+    Report, ReportType, JourneyPassenger
+)
 
 
 class StationSerializer(serializers.ModelSerializer):
@@ -116,3 +119,117 @@ class ConnectionSerializer(serializers.Serializer):
     stops_count = serializers.IntegerField(read_only=True)
     route_points = RoutePointSerializer(many=True, read_only=True)
     next_journeys = JourneySerializer(many=True, read_only=True)
+
+
+class ReportTypeSerializer(serializers.ModelSerializer):
+    """Serializer for ReportType model"""
+
+    class Meta:
+        model = ReportType
+        fields = [
+            'id',
+            'name',
+            'description',
+            'severity',
+            'icon',
+            'color',
+            'active',
+        ]
+        read_only_fields = ['id']
+
+
+class ReportCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating Report"""
+
+    class Meta:
+        model = Report
+        fields = [
+            'category',
+            'delay_minutes',
+            'description',
+            'image',
+            'confidence_level',
+            'location_latitude',
+            'location_longitude',
+        ]
+        extra_kwargs = {
+            'description': {'required': False, 'allow_blank': True},
+            'image': {'required': False, 'allow_null': True},
+            'delay_minutes': {'required': False, 'allow_null': True},
+            'confidence_level': {'required': False, 'default': 0.5},
+            'location_latitude': {'required': False, 'allow_null': True},
+            'location_longitude': {'required': False, 'allow_null': True},
+        }
+
+    def validate_category(self, value):
+        """Validate that category is one of allowed choices"""
+        allowed_categories = [choice[0] for choice in Report.CATEGORY_CHOICES]
+        if value not in allowed_categories:
+            raise serializers.ValidationError(f"Invalid category. Must be one of: {', '.join(allowed_categories)}")
+        return value
+
+
+class ReportSerializer(serializers.ModelSerializer):
+    """Serializer for Report model - read/list"""
+    user_username = serializers.CharField(source='user.username', read_only=True)
+    category_display = serializers.CharField(source='get_category_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    report_type_name = serializers.CharField(source='report_type.name', read_only=True)
+    from_station_name = serializers.CharField(source='from_station.name', read_only=True)
+    to_station_name = serializers.CharField(source='to_station.name', read_only=True)
+    route_name = serializers.CharField(source='route.name', read_only=True)
+    route_line_number = serializers.CharField(source='route.line_number', read_only=True)
+
+    class Meta:
+        model = Report
+        fields = [
+            'id',
+            'user',
+            'user_username',
+            'journey',
+            'route',
+            'route_name',
+            'route_line_number',
+            'from_station',
+            'from_station_name',
+            'to_station',
+            'to_station_name',
+            'report_type',
+            'report_type_name',
+            'category',
+            'category_display',
+            'status',
+            'status_display',
+            'delay_minutes',
+            'description',
+            'image',
+            'is_staff_report',
+            'confidence_level',
+            'location_latitude',
+            'location_longitude',
+            'created_at',
+            'updated_at',
+            'confirmed_at',
+            'resolved_at',
+        ]
+        read_only_fields = ['id', 'user', 'created_at', 'updated_at', 'is_staff_report']
+
+
+class JourneyPassengerSerializer(serializers.ModelSerializer):
+    """Serializer for JourneyPassenger model"""
+    user_username = serializers.CharField(source='user.username', read_only=True)
+    journey_info = JourneySerializer(source='journey', read_only=True)
+
+    class Meta:
+        model = JourneyPassenger
+        fields = [
+            'id',
+            'user',
+            'user_username',
+            'journey',
+            'journey_info',
+            'boarded_at',
+            'exited_at',
+            'is_active',
+        ]
+        read_only_fields = ['id', 'boarded_at']

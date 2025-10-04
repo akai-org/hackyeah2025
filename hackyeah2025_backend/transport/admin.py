@@ -1,7 +1,7 @@
 from django.contrib import admin
 from transport.models import (
     Carrier, Station, Track, Platform, Vehicle, Route, RoutePoint,
-    StationType, UserProfile, ReportType, Report, UserReport, UserStats, Weather, Ticket,
+    StationType, UserProfile, ReportType, Report, UserStats, Weather, Ticket,
     Journey, JourneyStatus, StationConnection, RouteGraph
 )
 
@@ -178,33 +178,28 @@ class ReportTypeAdmin(admin.ModelAdmin):
     ordering = ['-severity', 'name']
 
 
-class UserReportInline(admin.TabularInline):
-    model = UserReport
-    extra = 0
-    readonly_fields = ['user', 'is_staff_report', 'confidence_level', 'delay_minutes', 'description', 'created_at']
-    fields = ['user', 'is_staff_report', 'ticket', 'confidence_level', 'delay_minutes', 'description', 'created_at']
-    can_delete = False
-
-
 @admin.register(Report)
 class ReportAdmin(admin.ModelAdmin):
-    list_display = ['id', 'report_type', 'journey', 'route', 'from_station', 'to_station', 'status', 'user_reports_count', 'is_staff_reported', 'average_delay_minutes', 'created_at']
-    list_filter = ['status', 'report_type', 'is_staff_reported', 'route', 'created_at']
-    search_fields = ['description', 'route__line_number', 'from_station__name', 'to_station__name', 'journey__id']
-    raw_id_fields = ['journey', 'route', 'from_station', 'to_station', 'report_type']
-    readonly_fields = ['user_reports_count', 'is_staff_reported', 'average_delay_minutes', 'created_at', 'updated_at', 'confirmed_at']
+    list_display = ['id', 'user', 'report_type', 'journey', 'route', 'from_station', 'to_station', 'status', 'category', 'is_staff_report', 'delay_minutes', 'created_at']
+    list_filter = ['status', 'report_type', 'is_staff_report', 'category', 'route', 'created_at']
+    search_fields = ['description', 'route__line_number', 'from_station__name', 'to_station__name', 'user__username']
+    raw_id_fields = ['user', 'journey_passenger', 'journey', 'route', 'from_station', 'to_station', 'report_type']
+    readonly_fields = ['is_staff_report', 'created_at', 'updated_at', 'confirmed_at']
     date_hierarchy = 'created_at'
-    inlines = [UserReportInline]
 
     fieldsets = (
+        ('User Information', {
+            'fields': ('user', 'journey_passenger')
+        }),
         ('Route Information', {
-            'fields': ('journey', 'route', 'from_station', 'to_station', 'report_type')
+            'fields': ('journey', 'route', 'from_station', 'to_station', 'report_type', 'category')
         }),
-        ('Status', {
-            'fields': ('status', 'user_reports_count', 'is_staff_reported', 'average_delay_minutes')
+        ('Report Details', {
+            'fields': ('status', 'delay_minutes', 'description', 'image', 'confidence_level', 'is_staff_report')
         }),
-        ('Description', {
-            'fields': ('description',)
+        ('Location', {
+            'fields': ('location_latitude', 'location_longitude'),
+            'classes': ('collapse',)
         }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at', 'confirmed_at', 'resolved_at'),
@@ -227,26 +222,13 @@ class ReportAdmin(admin.ModelAdmin):
     mark_as_resolved.short_description = "Mark selected reports as resolved"
 
 
-@admin.register(UserReport)
-class UserReportAdmin(admin.ModelAdmin):
-    list_display = ['id', 'user', 'is_staff_report', 'ticket', 'confidence_level', 'report', 'delay_minutes', 'weather_condition', 'created_at']
-    list_filter = ['is_staff_report', 'report__status', 'report__report_type', 'created_at']
-    search_fields = ['user__username', 'ticket__ticket_number', 'report__description', 'report__route__line_number', 'report__from_station__name', 'report__to_station__name']
-    raw_id_fields = ['user', 'ticket', 'report']
-    readonly_fields = ['created_at']
-
-    fieldsets = (
-        ('User and Ticket', {
-            'fields': ('user', 'ticket')
-        }),
-        ('Report Details', {
-            'fields': ('report', 'is_staff_report', 'confidence_level', 'delay_minutes', 'description', 'weather_condition')
-        }),
-        ('Timestamp', {
-            'fields': ('created_at',),
-            'classes': ('collapse',)
-        }),
-    )
+@admin.register(UserStats)
+class UserStatsAdmin(admin.ModelAdmin):
+    list_display = ['user', 'total_reports', 'confirmed_reports', 'rejected_reports', 'reputation_score', 'last_report_date']
+    list_filter = ['created_at', 'updated_at']
+    search_fields = ['user__username', 'user__email']
+    raw_id_fields = ['user']
+    readonly_fields = ['created_at', 'updated_at']
 
 
 @admin.register(StationConnection)

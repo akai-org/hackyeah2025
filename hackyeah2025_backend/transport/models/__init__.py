@@ -10,8 +10,8 @@ from .vehicle import Vehicle
 from .route import Route, RoutePoint, RouteGraph
 from .journey import Journey, JourneyStatus
 from .weather import Weather
-from .user import UserProfile, Ticket
-from .report import ReportType, Report, UserReport, UserStats
+from .user import UserProfile, Ticket, JourneyPassenger
+from .report import ReportType, Report, UserStats
 
 # Define __all__ for clean imports
 __all__ = [
@@ -30,9 +30,8 @@ __all__ = [
     'Weather',
     'UserProfile',
     'Ticket',
+    'JourneyPassenger',
     'ReportType',
     'Report',
-    'UserReport',
     'UserStats',
 ]
-

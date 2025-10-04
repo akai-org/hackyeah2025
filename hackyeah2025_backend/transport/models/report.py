@@ -4,12 +4,9 @@ Modele raportów i zgłoszeń
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.contrib.auth.models import User
-from django.utils import timezone
 
 from .infrastructure import Station
 from .route import Route, RoutePoint
-from .user import Ticket
-from .weather import Weather
 
 
 class ReportType(models.Model):
@@ -55,8 +52,8 @@ class ReportType(models.Model):
 
 class Report(models.Model):
     """
-    Aggregated report for a specific route section.
-    Gets automatically confirmed when 3+ users report the same issue.
+    User report about an issue during journey.
+    Created directly by users who are active passengers.
     """
     STATUS_CHOICES = [
         ('PENDING', 'Pending verification'),
@@ -65,6 +62,37 @@ class Report(models.Model):
         ('RESOLVED', 'Resolved'),
     ]
 
+    CATEGORY_CHOICES = [
+        ('DELAY', 'Delay (train stopped or moving slowly)'),
+        ('TECHNICAL_FAILURE', 'Technical failure (vehicle, signaling, switches)'),
+        ('RANDOM_EVENT', 'Random event (accident, passenger illness)'),
+        ('INFRASTRUCTURE', 'Infrastructure issues (track maintenance, blocked crossing)'),
+        ('OVERCROWDING', 'Overcrowding (no seats, very crowded)'),
+        ('WEATHER', 'Weather conditions (snow, storm, heat affecting operations)'),
+        ('COMMUNITY_INFO', 'Community information (lost/found items, passenger assistance)'),
+        ('OTHER', 'Other'),
+    ]
+
+    # User who created the report
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='reports',
+        verbose_name="Reporting user"
+    )
+
+    # Journey passenger proof
+    journey_passenger = models.ForeignKey(
+        'JourneyPassenger',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reports',
+        verbose_name="Journey passenger record",
+        help_text="Proves user is currently on the journey"
+    )
+
     journey = models.ForeignKey(
         'Journey',
         on_delete=models.SET_NULL,
@@ -72,7 +100,7 @@ class Report(models.Model):
         blank=True,
         related_name='reports',
         verbose_name="Journey",
-        help_text="Specific journey this report is about (optional)"
+        help_text="Specific journey this report is about"
     )
     route = models.ForeignKey(
         Route,
@@ -101,34 +129,73 @@ class Report(models.Model):
         related_name='reports',
         verbose_name="Report type"
     )
+    category = models.CharField(
+        max_length=30,
+        choices=CATEGORY_CHOICES,
+        default='OTHER',
+        verbose_name="Report category",
+        help_text="Category of the reported issue"
+    )
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
         default='PENDING',
         verbose_name="Status"
     )
-    average_delay_minutes = models.IntegerField(
+
+    # Report details
+    delay_minutes = models.IntegerField(
         null=True,
         blank=True,
         validators=[MinValueValidator(0)],
-        verbose_name="Average delay in minutes",
-        help_text="Average delay from all user reports"
+        verbose_name="Delay in minutes",
+        help_text="User's reported delay duration"
     )
     description = models.TextField(
         blank=True,
-        verbose_name="Aggregated description",
-        help_text="Summary of user reports"
+        verbose_name="Description",
+        help_text="User's description of the issue"
     )
-    user_reports_count = models.IntegerField(
-        default=0,
-        validators=[MinValueValidator(0)],
-        verbose_name="Number of user reports",
-        help_text="How many users reported this issue"
+    image = models.ImageField(
+        upload_to='reports/',
+        null=True,
+        blank=True,
+        verbose_name="Image",
+        help_text="Photo evidence of the issue"
     )
-    is_staff_reported = models.BooleanField(
+
+    # Staff and verification
+    is_staff_report = models.BooleanField(
         default=False,
-        help_text="Whether any report was made by verified staff"
+        verbose_name="Staff report",
+        help_text="Whether this report is from verified staff (more credible)"
     )
+    confidence_level = models.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        default=0.5,
+        validators=[MinValueValidator(0), MaxValueValidator(1)],
+        verbose_name="Confidence level",
+        help_text="How confident the user is about this report (0-1)"
+    )
+
+    # Location data
+    location_latitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        verbose_name="User location latitude"
+    )
+    location_longitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        verbose_name="User location longitude"
+    )
+
+    # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     confirmed_at = models.DateTimeField(
@@ -154,30 +221,18 @@ class Report(models.Model):
         ]
 
     def __str__(self):
+        username = self.user.username
         journey_info = f" [{self.journey}]" if self.journey else ""
-        return f"{self.report_type.name} - {self.route.line_number}{journey_info}: {self.from_station.name} → {self.to_station.name} ({self.user_reports_count} reports, {self.get_status_display()})"
+        staff_tag = " [STAFF]" if self.is_staff_report else ""
+        return f"{username}'s report{staff_tag} - {self.report_type.name}{journey_info}: {self.from_station.name} → {self.to_station.name}"
 
-    def update_status(self):
-        """Check if report should be auto-confirmed based on user reports count"""
-        is_confirmed = self.user_reports_count > 3 or self.is_staff_reported
+    def save(self, *args, **kwargs):
+        """Override save to auto-detect staff reports"""
+        # Auto-detect if user is verified staff
+        if self.user and hasattr(self.user, 'profile') and self.user.profile.is_verified:
+            self.is_staff_report = True
 
-        if is_confirmed and self.status == 'PENDING':
-            self.status = 'CONFIRMED'
-            self.confirmed_at = timezone.now()
-            self.save(update_fields=['status', 'confirmed_at'])
-            return True
-        return False
-
-    def recalculate_metrics(self):
-        """Recalculate average delay and description from user reports"""
-        user_reports = self.user_reports.all()
-        total_delay = sum([ur.delay_minutes or 0 for ur in user_reports])
-        count = user_reports.count()
-        self.user_reports_count = count
-        self.average_delay_minutes = total_delay // count if count > 0 else None
-        self.is_staff_reported = user_reports.filter(is_staff_report=True).exists()
-        self.description = "; ".join([ur.description for ur in user_reports if ur.description])
-        self.save(update_fields=['user_reports_count', 'average_delay_minutes', 'is_staff_reported', 'description', 'updated_at'])
+        super().save(*args, **kwargs)
 
     def get_affected_route_section(self):
         """Get all route points between from_station and to_station"""
@@ -194,113 +249,6 @@ class Report(models.Model):
                 sequence__lte=to_point.sequence
             )
         return RoutePoint.objects.none()
-
-
-class UserReport(models.Model):
-    """
-    Individual user's report about an issue.
-    Multiple user reports get aggregated into a single Report.
-    """
-    report = models.ForeignKey(
-        Report,
-        on_delete=models.CASCADE,
-        related_name='user_reports',
-        verbose_name="Aggregated report"
-    )
-    user = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='user_reports',
-        verbose_name="Reporting user"
-    )
-    ticket = models.ForeignKey(
-        Ticket,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='reports',
-        verbose_name="Associated ticket",
-        help_text="Ticket that proves user was on this route"
-    )
-    is_staff_report = models.BooleanField(
-        default=False,
-        verbose_name="Staff report",
-        help_text="Whether this report is from railway staff (more credible)"
-    )
-    confidence_level = models.DecimalField(
-        max_digits=3,
-        decimal_places=2,
-        default=0.5,
-        validators=[MinValueValidator(0), MaxValueValidator(1)],
-        verbose_name="Confidence level",
-        help_text="How confident the user is about this report (0-1, where 1 is very confident)"
-    )
-    delay_minutes = models.IntegerField(
-        null=True,
-        blank=True,
-        validators=[MinValueValidator(0)],
-        verbose_name="Delay in minutes",
-        help_text="User's reported delay duration"
-    )
-    description = models.TextField(
-        blank=True,
-        verbose_name="Description",
-        help_text="User's description of the issue"
-    )
-    image = models.ImageField(
-        upload_to='user_reports/',
-        null=True,
-        blank=True,
-        verbose_name="Image"
-    )
-    location_latitude = models.DecimalField(
-        max_digits=9,
-        decimal_places=6,
-        null=True,
-        blank=True,
-        verbose_name="User location latitude"
-    )
-    location_longitude = models.DecimalField(
-        max_digits=9,
-        decimal_places=6,
-        null=True,
-        blank=True,
-        verbose_name="User location longitude"
-    )
-    weather_condition = models.ForeignKey(
-        Weather,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='reports',
-        verbose_name="Weather at time of report"
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        verbose_name = "User report"
-        verbose_name_plural = "User reports"
-        ordering = ['-created_at']
-        unique_together = [['report', 'user']]
-
-    def __str__(self):
-        username = self.user.username if self.user else "Anonymous"
-        staff_tag = " [STAFF]" if self.is_staff_report else ""
-        return f"{username}'s report{staff_tag} on {self.report}"
-
-    def save(self, *args, **kwargs):
-        """Override save to update parent Report metrics"""
-        is_new = self.pk is None
-
-        # Auto-detect if user is staff
-        if self.user and self.user.is_staff:
-            self.is_staff_report = True
-
-        super().save(*args, **kwargs)
-
-        if is_new:
-            self.report.recalculate_metrics()
 
 
 class UserStats(models.Model):
@@ -320,18 +268,12 @@ class UserStats(models.Model):
         default=0,
         validators=[MinValueValidator(0)],
         verbose_name="Number of confirmed reports",
-        help_text="Reports that were verified by community or admins"
+        help_text="Reports that were verified by admins"
     )
     rejected_reports = models.IntegerField(
         default=0,
         validators=[MinValueValidator(0)],
         verbose_name="Number of rejected reports"
-    )
-    total_confirmations_given = models.IntegerField(
-        default=0,
-        validators=[MinValueValidator(0)],
-        verbose_name="Total confirmations given",
-        help_text="How many times user confirmed other users' reports"
     )
     reputation_score = models.IntegerField(
         default=0,
@@ -353,25 +295,22 @@ class UserStats(models.Model):
         return f"{self.user.username} - Stats (Reports: {self.total_reports}, Confirmed: {self.confirmed_reports})"
 
     def update_stats(self):
-        """Recalculate user statistics from user reports"""
-        user_reports = UserReport.objects.filter(user=self.user)
+        """Recalculate user statistics from reports"""
+        reports = Report.objects.filter(user=self.user)
 
-        self.total_reports = user_reports.count()
-        confirmed_user_reports = user_reports.filter(report__status='CONFIRMED')
-        self.confirmed_reports = confirmed_user_reports.count()
-
-        rejected_user_reports = user_reports.filter(report__status='REJECTED')
-        self.rejected_reports = rejected_user_reports.count()
+        self.total_reports = reports.count()
+        self.confirmed_reports = reports.filter(status='CONFIRMED').count()
+        self.rejected_reports = reports.filter(status='REJECTED').count()
 
         if self.total_reports > 0:
             confirmation_rate = self.confirmed_reports / self.total_reports
             rejection_penalty = self.rejected_reports * 5
-            staff_bonus = user_reports.filter(is_staff_report=True).count() * 10
+            staff_bonus = reports.filter(is_staff_report=True).count() * 10
             self.reputation_score = int((confirmation_rate * 100) + staff_bonus - rejection_penalty)
         else:
             self.reputation_score = 0
 
-        last_report = user_reports.order_by('-created_at').first()
+        last_report = reports.order_by('-created_at').first()
         if last_report:
             self.last_report_date = last_report.created_at
 

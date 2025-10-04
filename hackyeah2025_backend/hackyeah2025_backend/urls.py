@@ -23,6 +23,9 @@ urlpatterns = [
 
     # API endpoints
     path('api/', include('transport.urls')),
+    path('api/', include('report.urls')),
+    path('api/', include('user.urls')),
+    path('api/userstats/', include('userstats.urls')),
 
     # Swagger/OpenAPI documentation
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),

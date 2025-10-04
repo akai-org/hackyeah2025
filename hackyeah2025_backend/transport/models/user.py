@@ -1,9 +1,12 @@
 """
 Modele użytkowników i biletów
 """
+from datetime import timezone
+
 from django.db import models
 from django.core.validators import MinValueValidator
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 
 from .infrastructure import Station
 from .route import Route
@@ -133,3 +136,92 @@ class Ticket(models.Model):
     def __str__(self):
         return f"Ticket {self.ticket_number} - {self.user.username} ({self.from_station.name} → {self.to_station.name})"
 
+
+class JourneyPassenger(models.Model):
+    """
+    Represents a user currently on a journey.
+    A user can only be on one journey at a time.
+    This is required to submit reports.
+    """
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='current_journey',
+        verbose_name="User",
+        help_text="User can only be on one journey at a time"
+    )
+    journey = models.ForeignKey(
+        'Journey',
+        on_delete=models.CASCADE,
+        related_name='passengers',
+        verbose_name="Journey",
+        help_text="The journey user is currently on"
+    )
+
+    boarded_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Boarding time"
+    )
+    exited_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Exit time"
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Whether user is still on this journey"
+    )
+
+    class Meta:
+        verbose_name = "Journey passenger"
+        verbose_name_plural = "Journey passengers"
+        ordering = ['-boarded_at']
+        indexes = [
+            models.Index(fields=['user', 'is_active']),
+            models.Index(fields=['journey', 'is_active']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} on {self.journey}"
+
+    def clean(self):
+        """Validate that user is not already on another journey"""
+        if self.pk is None and self.is_active:
+            existing = JourneyPassenger.objects.filter(
+                user=self.user,
+                is_active=True
+            ).exists()
+            if existing:
+                raise ValidationError(
+                    f"User {self.user.username} is already on another journey."
+                )
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
+
+    def exit_journey(self):
+        """Mark user as exited from journey"""
+        from django.utils import timezone
+        self.is_active = False
+        self.exited_at = timezone.now()
+        self.save()
+
+    @classmethod
+    def board_user(cls, user, journey, boarding_station, destination_station, ticket=None):
+        """Board a user onto a journey"""
+        # Exit from any current journey
+        cls.objects.filter(user=user, is_active=True).update(
+            is_active=False,
+            exited_at=timezone.now()
+        )
+
+        # Create new boarding
+        return cls.objects.create(
+            user=user,
+            journey=journey,
+            boarding_station=boarding_station,
+            destination_station=destination_station,
+            ticket=ticket,
+            is_active=True
+        )
