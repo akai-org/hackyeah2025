@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from rest_framework import viewsets, status
+from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -18,6 +18,23 @@ class UserReputationViewSet(viewsets.ReadOnlyModelViewSet):
         reputation, created = UserReputation.objects.get_or_create(user=request.user)
         serializer = self.get_serializer(reputation)
         return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def achievements(self, request):
+        reputation, created = UserReputation.objects.get_or_create(user=request.user)
+        achievements = reputation.get_achievements()
+
+        unlocked = [a for a in achievements if a['unlocked']]
+        locked = [a for a in achievements if not a['unlocked']]
+
+        return Response({
+            'total_achievements': len(achievements),
+            'unlocked_count': len(unlocked),
+            'locked_count': len(locked),
+            'achievements': achievements,
+            'unlocked': unlocked,
+            'locked': locked
+        })
 
 
 class ReportFeedbackViewSet(viewsets.ModelViewSet):

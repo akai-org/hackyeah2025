@@ -132,6 +132,304 @@ class UserReputation(models.Model):
             return True
         return False
 
+    def get_achievements(self):
+        achievements = []
+
+        ACHIEVEMENTS_CONFIG = [
+            {
+                'id': 'first_steps',
+                'name': 'First Steps',
+                'description': 'Create your first report',
+                'icon': '🚀',
+                'threshold': 1,
+                'current': self.total_reports_created,
+                'type': 'reports'
+            },
+            {
+                'id': 'reporter',
+                'name': 'Active Reporter',
+                'description': 'Create 5 reports',
+                'icon': '📝',
+                'threshold': 5,
+                'current': self.total_reports_created,
+                'type': 'reports'
+            },
+            {
+                'id': 'veteran_reporter',
+                'name': 'Veteran Reporter',
+                'description': 'Create 10 reports',
+                'icon': '🏆',
+                'threshold': 10,
+                'current': self.total_reports_created,
+                'type': 'reports'
+            },
+            {
+                'id': 'master_reporter',
+                'name': 'Master Reporter',
+                'description': 'Create 25 reports',
+                'icon': '👑',
+                'threshold': 25,
+                'current': self.total_reports_created,
+                'type': 'reports'
+            },
+            {
+                'id': 'legend_reporter',
+                'name': 'Legend Reporter',
+                'description': 'Create 50 reports',
+                'icon': '💎',
+                'threshold': 50,
+                'current': self.total_reports_created,
+                'type': 'reports'
+            },
+            {
+                'id': 'helpful',
+                'name': 'Helpful',
+                'description': 'Receive 5 positive feedbacks',
+                'icon': '👍',
+                'threshold': 5,
+                'current': self.positive_feedbacks_received,
+                'type': 'positive_feedback'
+            },
+            {
+                'id': 'trusted',
+                'name': 'Trusted Source',
+                'description': 'Receive 10 positive feedbacks',
+                'icon': '⭐',
+                'threshold': 10,
+                'current': self.positive_feedbacks_received,
+                'type': 'positive_feedback'
+            },
+            {
+                'id': 'community_hero',
+                'name': 'Community Hero',
+                'description': 'Receive 25 positive feedbacks',
+                'icon': '🌟',
+                'threshold': 25,
+                'current': self.positive_feedbacks_received,
+                'type': 'positive_feedback'
+            },
+            {
+                'id': 'golden_standard',
+                'name': 'Golden Standard',
+                'description': 'Receive 50 positive feedbacks',
+                'icon': '🏅',
+                'threshold': 50,
+                'current': self.positive_feedbacks_received,
+                'type': 'positive_feedback'
+            },
+            {
+                'id': 'feedback_giver',
+                'name': 'Feedback Giver',
+                'description': 'Give feedback 10 times',
+                'icon': '💬',
+                'threshold': 10,
+                'current': self.total_feedbacks_given,
+                'type': 'feedback_given'
+            },
+            {
+                'id': 'community_supporter',
+                'name': 'Community Supporter',
+                'description': 'Give feedback 25 times',
+                'icon': '🤝',
+                'threshold': 25,
+                'current': self.total_feedbacks_given,
+                'type': 'feedback_given'
+            },
+            {
+                'id': 'judge',
+                'name': 'The Judge',
+                'description': 'Give feedback 50 times',
+                'icon': '⚖️',
+                'threshold': 50,
+                'current': self.total_feedbacks_given,
+                'type': 'feedback_given'
+            },
+            {
+                'id': 'critic',
+                'name': 'Professional Critic',
+                'description': 'Give feedback 100 times',
+                'icon': '🎯',
+                'threshold': 100,
+                'current': self.total_feedbacks_given,
+                'type': 'feedback_given'
+            },
+            {
+                'id': 'tier_2',
+                'name': 'Trusted User',
+                'description': 'Reach Tier 2',
+                'icon': '🥉',
+                'threshold': 2,
+                'current': self.tier,
+                'type': 'tier'
+            },
+            {
+                'id': 'tier_3',
+                'name': 'Experienced User',
+                'description': 'Reach Tier 3',
+                'icon': '🥈',
+                'threshold': 3,
+                'current': self.tier,
+                'type': 'tier'
+            },
+            {
+                'id': 'tier_4',
+                'name': 'Expert User',
+                'description': 'Reach Tier 4',
+                'icon': '🥇',
+                'threshold': 4,
+                'current': self.tier,
+                'type': 'tier'
+            },
+            {
+                'id': 'early_bird',
+                'name': 'Early Bird',
+                'description': 'Be one of the first 100 users',
+                'icon': '🐦',
+                'threshold': 1,
+                'current': 1 if self.user.id <= 100 else 0,
+                'type': 'special'
+            },
+            {
+                'id': 'night_owl',
+                'name': 'Night Owl',
+                'description': 'Create 5 reports (simulated night activity)',
+                'icon': '🦉',
+                'threshold': 5,
+                'current': self.total_reports_created,
+                'type': 'special'
+            },
+            {
+                'id': 'speed_demon',
+                'name': 'Speed Demon',
+                'description': 'Give 20 feedbacks quickly',
+                'icon': '⚡',
+                'threshold': 20,
+                'current': self.total_feedbacks_given,
+                'type': 'special'
+            },
+            {
+                'id': 'social_butterfly',
+                'name': 'Social Butterfly',
+                'description': 'Interact with community 30 times',
+                'icon': '🦋',
+                'threshold': 30,
+                'current': self.total_feedbacks_given + self.total_reports_created,
+                'type': 'special'
+            },
+            {
+                'id': 'survivor',
+                'name': 'Survivor',
+                'description': 'Recover from 5 negative feedbacks',
+                'icon': '💪',
+                'threshold': 5,
+                'current': self.negative_feedbacks_received,
+                'type': 'special'
+            },
+            {
+                'id': 'phoenix',
+                'name': 'Phoenix',
+                'description': 'Rise again after 10 negative feedbacks',
+                'icon': '🔥',
+                'threshold': 10,
+                'current': self.negative_feedbacks_received,
+                'type': 'special'
+            },
+            {
+                'id': 'balanced',
+                'name': 'Perfectly Balanced',
+                'description': 'Have equal positive and negative feedbacks (min 10 each)',
+                'icon': '☯️',
+                'threshold': 1,
+                'current': 1 if (self.positive_feedbacks_received >= 10 and
+                                 self.negative_feedbacks_received >= 10 and
+                                 abs(self.positive_feedbacks_received - self.negative_feedbacks_received) <= 2) else 0,
+                'type': 'special'
+            },
+            {
+                'id': 'optimist',
+                'name': 'Eternal Optimist',
+                'description': 'Have 90% positive feedback rate (min 20 feedbacks)',
+                'icon': '😊',
+                'threshold': 1,
+                'current': 1 if (self.positive_feedbacks_received + self.negative_feedbacks_received >= 20 and
+                                 self.positive_feedbacks_received / max(1, self.positive_feedbacks_received + self.negative_feedbacks_received) >= 0.9) else 0,
+                'type': 'special'
+            },
+            {
+                'id': 'train_spotter',
+                'name': 'Train Spotter',
+                'description': 'Create reports regularly',
+                'icon': '🚂',
+                'threshold': 15,
+                'current': self.total_reports_created,
+                'type': 'fun'
+            },
+            {
+                'id': 'detective',
+                'name': 'Transport Detective',
+                'description': 'Report various issues accurately',
+                'icon': '🔍',
+                'threshold': 20,
+                'current': self.total_reports_created,
+                'type': 'fun'
+            },
+            {
+                'id': 'helpful_hand',
+                'name': 'Helpful Hand',
+                'description': 'Help others by giving feedback',
+                'icon': '✋',
+                'threshold': 15,
+                'current': self.total_feedbacks_given,
+                'type': 'fun'
+            },
+            {
+                'id': 'reliable',
+                'name': 'Mr. Reliable',
+                'description': 'Maintain high accuracy in reports',
+                'icon': '🎖️',
+                'threshold': 1,
+                'current': 1 if (self.total_reports_created >= 10 and
+                                 self.positive_feedbacks_received > self.negative_feedbacks_received * 2) else 0,
+                'type': 'fun'
+            },
+            {
+                'id': 'century_club',
+                'name': 'Century Club',
+                'description': 'Reach 100 total activities',
+                'icon': '💯',
+                'threshold': 100,
+                'current': self.total_reports_created + self.total_feedbacks_given,
+                'type': 'milestone'
+            },
+            {
+                'id': 'veteran',
+                'name': 'Veteran Member',
+                'description': 'Be active for a long time',
+                'icon': '🎂',
+                'threshold': 1,
+                'current': 1 if self.total_reports_created + self.total_feedbacks_given >= 50 else 0,
+                'type': 'milestone'
+            },
+        ]
+
+        for achievement in ACHIEVEMENTS_CONFIG:
+            is_unlocked = achievement['current'] >= achievement['threshold']
+            progress = min(100, int((achievement['current'] / achievement['threshold']) * 100))
+
+            achievements.append({
+                'id': achievement['id'],
+                'name': achievement['name'],
+                'description': achievement['description'],
+                'icon': achievement['icon'],
+                'unlocked': is_unlocked,
+                'progress': progress,
+                'current': achievement['current'],
+                'threshold': achievement['threshold'],
+                'type': achievement['type']
+            })
+
+        return achievements
+
 
 class ReportFeedback(models.Model):
     FEEDBACK_CHOICES = [
