@@ -1,0 +1,3 @@
+[submodule "hackyeah2025-frontend"]
+	path = hackyeah2025-frontend
+	url = https://github.com/mit3r/hackyeah2025-frontend
