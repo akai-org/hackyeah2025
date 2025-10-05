@@ -18,25 +18,25 @@ class Command(BaseCommand):
             # Magistrala CMK (Centralna Magistrala Kolejowa) - Warszawa - Katowice - Kraków
             ('Warszawa Centralna', 'Częstochowa', 221, 90, 160),
             ('Częstochowa', 'Katowice', 83, 45, 140),
-            ('Katowice', 'Krakw Głwny', 79, 50, 140),
+            ('Katowice', 'Kraków Główny', 79, 50, 140),
 
             # Warszawa - Kraków przez Radom, Kielce
             ('Warszawa Centralna', 'Radom', 102, 75, 120),
             ('Radom', 'Kielce', 89, 70, 110),
-            ('Kielce', 'Krakw Głwny', 101, 85, 120),
+            ('Kielce', 'Kraków Główny', 101, 85, 120),
 
             # Warszawa - Gdańsk
-            ('Warszawa Centralna', 'Toruń Głwny', 190, 120, 140),
-            ('Toruń Głwny', 'Bydgoszcz Głwna', 45, 30, 120),
-            ('Bydgoszcz Głwna', 'Gdańsk Głwny', 143, 90, 140),
+            ('Warszawa Centralna', 'Toruń Główny', 190, 120, 140),
+            ('Toruń Główny', 'Bydgoszcz Główna', 45, 30, 120),
+            ('Bydgoszcz Główna', 'Gdańsk Główny', 143, 90, 140),
 
             # Trójmiasto
-            ('Gdańsk Głwny', 'Sopot', 11, 12, 120),
-            ('Sopot', 'Gdynia Głwna', 8, 10, 120),
+            ('Gdańsk Główny', 'Sopot', 11, 12, 120),
+            ('Sopot', 'Gdynia Główna', 8, 10, 120),
 
             # Warszawa - Poznań
             ('Warszawa Centralna', 'Konin', 155, 100, 140),
-            ('Konin', 'Poznań Głwny', 97, 65, 140),
+            ('Konin', 'Poznań Główny', 97, 65, 140),
 
             # Warszawa - Białystok
             ('Warszawa Centralna', 'Siedlce', 90, 60, 120),
@@ -46,27 +46,27 @@ class Command(BaseCommand):
             ('Warszawa Centralna', 'Lublin', 170, 110, 140),
 
             # Warszawa - Łódź
-            ('Warszawa Centralna', 'Łdź Fabryczna', 135, 75, 160),
+            ('Warszawa Centralna', 'Łódź Fabryczna', 135, 75, 160),
 
             # Kraków - Zakopane (przez beskidy)
-            ('Krakw Głwny', 'Sucha Beskidzka', 62, 65, 100),
-            ('Sucha Beskidzka', 'Rabka-Zdrj', 18, 25, 80),
-            ('Krakw Głwny', 'Tarnw', 82, 60, 120),
-            ('Tarnw', 'Nowy Sącz', 63, 55, 100),
+            ('Kraków Główny', 'Sucha Beskidzka', 62, 65, 100),
+            ('Sucha Beskidzka', 'Rabka-Zdrój', 18, 25, 80),
+            ('Kraków Główny', 'Tarnów', 82, 60, 120),
+            ('Tarnów', 'Nowy Sącz', 63, 55, 100),
 
             # Kraków - Rzeszów
-            ('Krakw Głwny', 'Rzeszw Głwny', 97, 75, 120),
+            ('Kraków Główny', 'Rzeszów Główny', 97, 75, 120),
 
             # Wrocław - Poznań
-            ('Wrocław Głwny', 'Poznań Głwny', 170, 110, 140),
+            ('Wrocław Główny', 'Poznań Główny', 170, 110, 140),
 
             # Wrocław - Warszawa
-            ('Wrocław Głwny', 'Łdź Fabryczna', 190, 120, 140),
-            ('Łdź Fabryczna', 'Warszawa Centralna', 135, 75, 160),
+            ('Wrocław Główny', 'Łódź Fabryczna', 190, 120, 140),
+            ('Łódź Fabryczna', 'Warszawa Centralna', 135, 75, 160),
 
             # Wrocław - Opole - Katowice
-            ('Wrocław Głwny', 'Opole Głwne', 75, 50, 120),
-            ('Opole Głwne', 'Katowice', 92, 60, 120),
+            ('Wrocław Główny', 'Opole Główne', 75, 50, 120),
+            ('Opole Główne', 'Katowice', 92, 60, 120),
 
             # Śląsk
             ('Katowice', 'Gliwice', 25, 20, 100),
@@ -75,28 +75,28 @@ class Command(BaseCommand):
             ('Katowice', 'Jaworzno Szczakowa', 28, 25, 100),
 
             # Poznań - Szczecin
-            ('Poznań Głwny', 'Piła Głwna', 80, 55, 120),
-            ('Piła Głwna', 'Stargard', 90, 65, 120),
-            ('Stargard', 'Szczecin Głwny', 24, 18, 100),
+            ('Poznań Główny', 'Piła Główna', 80, 55, 120),
+            ('Piła Główna', 'Stargard', 90, 65, 120),
+            ('Stargard', 'Szczecin Główny', 24, 18, 100),
 
             # Poznań - Zielona Góra
-            ('Poznań Głwny', 'Zielona Gra', 120, 85, 120),
+            ('Poznań Główny', 'Zielona Góra', 120, 85, 120),
 
             # Wrocław - Legnica - Zielona Góra
-            ('Wrocław Głwny', 'Legnica', 66, 50, 120),
-            ('Legnica', 'Zielona Gra', 115, 90, 120),
+            ('Wrocław Główny', 'Legnica', 66, 50, 120),
+            ('Legnica', 'Zielona Góra', 115, 90, 120),
 
             # Wrocław - Wałbrzych
-            ('Wrocław Głwny', 'Świdnica', 53, 45, 100),
-            ('Świdnica', 'Wałbrzych Głwny', 25, 25, 90),
+            ('Wrocław Główny', 'Świdnica', 53, 45, 100),
+            ('Świdnica', 'Wałbrzych Główny', 25, 25, 90),
 
             # Łódź - Koluszki - Piotrków
-            ('Łdź Fabryczna', 'Piotrkw Trybunalski', 45, 35, 120),
-            ('Piotrkw Trybunalski', 'Częstochowa', 60, 45, 120),
+            ('Łódź Fabryczna', 'Piotrków Trybunalski', 45, 35, 120),
+            ('Piotrków Trybunalski', 'Częstochowa', 60, 45, 120),
 
             # Gdańsk - Elbląg - Olsztyn
-            ('Gdańsk Głwny', 'Elbląg', 57, 45, 120),
-            ('Elbląg', 'Olsztyn Głwny', 92, 70, 120),
+            ('Gdańsk Główny', 'Elbląg', 57, 45, 120),
+            ('Elbląg', 'Olsztyn Główny', 92, 70, 120),
 
             # Białystok - Ełk - Suwałki
             ('Białystok', 'Ełk', 118, 95, 100),
@@ -106,42 +106,42 @@ class Command(BaseCommand):
             ('Lublin', 'Zamość', 88, 75, 100),
 
             # Kraków - Rzeszów bezpośrednie
-            ('Krakw Głwny', 'Rzeszw Głwny', 179, 135, 120),
+            ('Kraków Główny', 'Rzeszów Główny', 179, 135, 120),
 
             # Linie regionalne Małopolska
-            ('Krakw Głwny', 'Oświęcim', 63, 55, 100),
+            ('Kraków Główny', 'Oświęcim', 63, 55, 100),
             ('Oświęcim', 'Tychy', 35, 30, 90),
 
             # Mazowsze - linie aglomeracyjne
-            ('Warszawa Centralna', 'Pruszkw', 18, 15, 100),
+            ('Warszawa Centralna', 'Pruszków', 18, 15, 100),
 
             # Pomorze
-            ('Gdańsk Głwny', 'Słupsk', 123, 95, 120),
+            ('Gdańsk Główny', 'Słupsk', 123, 95, 120),
             ('Słupsk', 'Koszalin', 78, 60, 120),
-            ('Koszalin', 'Szczecin Głwny', 147, 110, 120),
+            ('Koszalin', 'Szczecin Główny', 147, 110, 120),
 
             # Wielkopolska
-            ('Poznań Głwny', 'Gniezno', 48, 35, 120),
-            ('Poznań Głwny', 'Kalisz', 110, 80, 120),
-            ('Poznań Głwny', 'Ostrw Wielkopolski', 89, 65, 120),
+            ('Poznań Główny', 'Gniezno', 48, 35, 120),
+            ('Poznań Główny', 'Kalisz', 110, 80, 120),
+            ('Poznań Główny', 'Ostrów Wielkopolski', 89, 65, 120),
 
             # Dolny Śląsk - Kujawsko-Pomorskie
-            ('Wrocław Głwny', 'Kalisz', 162, 120, 120),
+            ('Wrocław Główny', 'Kalisz', 162, 120, 120),
 
             # Kujawy
-            ('Bydgoszcz Głwna', 'Toruń Głwny', 45, 30, 120),
-            ('Toruń Głwny', 'Inowrocław', 38, 30, 100),
+            ('Bydgoszcz Główna', 'Toruń Główny', 45, 30, 120),
+            ('Toruń Główny', 'Inowrocław', 38, 30, 100),
             ('Inowrocław', 'Gniezno', 52, 40, 100),
 
             # Łódzkie - Wielkopolskie
-            ('Łdź Fabryczna', 'Kalisz', 115, 85, 120),
+            ('Łódź Fabryczna', 'Kalisz', 115, 85, 120),
 
             # Mazury
-            ('Olsztyn Głwny', 'Ełk', 115, 90, 100),
+            ('Olsztyn Główny', 'Ełk', 115, 90, 100),
 
             # Małopolska - Podkarpacie
-            ('Tarnw', 'Mielec', 70, 60, 100),
-            ('Mielec', 'Rzeszw Głwny', 52, 45, 100),
+            ('Tarnów', 'Mielec', 70, 60, 100),
+            ('Mielec', 'Rzeszów Główny', 52, 45, 100),
 
             # Śląsk - Małopolska lokalne
             ('Katowice', 'Oświęcim', 48, 40, 100),
@@ -150,7 +150,7 @@ class Command(BaseCommand):
             ('Warszawa Centralna', 'Płock', 110, 85, 120),
 
             # Kujawsko-Pomorskie
-            ('Bydgoszcz Głwna', 'Grudziądz', 58, 45, 100),
+            ('Bydgoszcz Główna', 'Grudziądz', 58, 45, 100),
         ]
 
         created_count = 0
@@ -223,4 +223,3 @@ class Command(BaseCommand):
         stations_by_connections = Station.objects.annotate(
             connection_count=Count('outgoing_connections')
         ).order_by('-connection_count')[:10]
-

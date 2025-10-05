@@ -31,14 +31,14 @@ class Command(BaseCommand):
             }
         )
 
-        # Get stations by ID (more reliable than names)
+        # Get stations by name (more reliable after fresh database)
         try:
-            warszawa = Station.objects.get(id=1)  # Warszawa Centralna
-            krakow = Station.objects.get(id=2)     # Kraków
-            wroclaw = Station.objects.get(id=3)    # Wrocław
-            poznan = Station.objects.get(id=4)     # Poznań
-            gdansk = Station.objects.get(id=5)     # Gdańsk
-            katowice = Station.objects.get(id=7)   # Katowice
+            warszawa = Station.objects.get(name='Warszawa Centralna')
+            krakow = Station.objects.get(name='Kraków Główny')
+            wroclaw = Station.objects.get(name='Wrocław Główny')
+            poznan = Station.objects.get(name='Poznań Główny')
+            gdansk = Station.objects.get(name='Gdańsk Główny')
+            katowice = Station.objects.get(name='Katowice')
         except Station.DoesNotExist as e:
             self.stdout.write(self.style.ERROR(f'Station not found: {e}'))
             return
@@ -216,42 +216,84 @@ class Command(BaseCommand):
             }
         )
 
-        # Create some journeys for today and tomorrow
+        # Create multiple journeys throughout the day (every 1-2.5 hours)
+        # For the next 7 days
         today = date.today()
-        tomorrow = today + timedelta(days=1)
 
-        for route in [route1, route2, route3, route4]:
-            first_point = route.route_points.order_by('sequence').first()
-            last_point = route.route_points.order_by('-sequence').first()
+        # Define departure times for each route (multiple trains per day)
+        route_schedules = {
+            route1: [
+                time(5, 30), time(7, 0), time(8, 30), time(10, 15),
+                time(12, 0), time(14, 30), time(16, 45), time(19, 0), time(21, 15)
+            ],
+            route2: [
+                time(6, 0), time(8, 15), time(10, 0), time(12, 30),
+                time(14, 0), time(16, 15), time(18, 30), time(20, 0), time(22, 15)
+            ],
+            route3: [
+                time(5, 45), time(7, 30), time(9, 0), time(11, 15),
+                time(13, 30), time(15, 45), time(18, 0), time(20, 30)
+            ],
+            route4: [
+                time(6, 30), time(8, 0), time(10, 0), time(12, 15),
+                time(14, 30), time(17, 0), time(19, 15), time(21, 30)
+            ],
+        }
 
-            if first_point and last_point:
-                # Create journey for today
-                Journey.objects.get_or_create(
-                    route=route,
-                    journey_date=today,
-                    defaults={
-                        'vehicle': vehicle,
-                        'scheduled_departure': datetime.combine(today, first_point.scheduled_departure_time),
-                        'scheduled_arrival': datetime.combine(today, last_point.scheduled_arrival_time),
-                        'status': 'SCHEDULED',
-                        'current_delay_minutes': 0
-                    }
-                )
+        journeys_created = 0
+        for day_offset in range(7):  # Next 7 days
+            journey_date = today + timedelta(days=day_offset)
 
-                # Create journey for tomorrow
-                Journey.objects.get_or_create(
-                    route=route,
-                    journey_date=tomorrow,
-                    defaults={
-                        'vehicle': vehicle,
-                        'scheduled_departure': datetime.combine(tomorrow, first_point.scheduled_departure_time),
-                        'scheduled_arrival': datetime.combine(tomorrow, last_point.scheduled_arrival_time),
-                        'status': 'SCHEDULED',
-                        'current_delay_minutes': 0
-                    }
-                )
+            for route, departure_times in route_schedules.items():
+                first_point = route.route_points.order_by('sequence').first()
+                last_point = route.route_points.order_by('-sequence').first()
+
+                if not first_point or not last_point:
+                    continue
+
+                for departure_time in departure_times:
+                    # Calculate arrival time based on route duration
+                    departure_dt = datetime.combine(journey_date, departure_time)
+
+                    # Calculate duration from route points
+                    first_time = first_point.scheduled_departure_time
+                    last_time = last_point.scheduled_arrival_time
+
+                    # Handle time difference (might cross midnight)
+                    if last_time < first_time:
+                        duration = timedelta(
+                            hours=24 - first_time.hour + last_time.hour,
+                            minutes=last_time.minute - first_time.minute
+                        )
+                    else:
+                        duration = timedelta(
+                            hours=last_time.hour - first_time.hour,
+                            minutes=last_time.minute - first_time.minute
+                        )
+
+                    arrival_dt = departure_dt + duration
+
+                    # Random small delay or on-time
+                    import random
+                    delay = random.choice([0, 0, 0, 0, 5, 10, 15])  # Mostly on time
+
+                    journey, created = Journey.objects.get_or_create(
+                        route=route,
+                        journey_date=journey_date,
+                        scheduled_departure=departure_dt,
+                        defaults={
+                            'vehicle': vehicle,
+                            'scheduled_arrival': arrival_dt,
+                            'status': 'SCHEDULED',
+                            'current_delay_minutes': delay
+                        }
+                    )
+
+                    if created:
+                        journeys_created += 1
 
         self.stdout.write(self.style.SUCCESS('Test routes created successfully!'))
         self.stdout.write(f'Total routes: {Route.objects.count()}')
         self.stdout.write(f'Total route points: {RoutePoint.objects.count()}')
-        self.stdout.write(f'Total journeys: {Journey.objects.count()}')
+        self.stdout.write(f'Total journeys created: {journeys_created}')
+        self.stdout.write(f'Total journeys in DB: {Journey.objects.count()}')
