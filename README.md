@@ -1,5 +1,5 @@
 # IleJeszcze
-> PL: Podróżuj w nowoczesny sposób - znajduj pociągi, sprawdzaj opóźnienia i alternatywne trasy, zgłaszaj incy
+> PL: Podróżuj w nowoczesny sposób - znajduj pociągi, sprawdzaj opóźnienia i alternatywne trasy, zgłaszaj incydenty i dostawaj nagrody! <br/>
 > EN: Travel in a modern way - find your train, check delays and alternative routes,  report issues, win rewards!
 
 ## How to run
