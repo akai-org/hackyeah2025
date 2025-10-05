@@ -20,14 +20,14 @@ class GeoVehicleView(APIView):
         parameters=[
             OpenApiParameter(
                 name="latitude",
-                type=OpenApiTypes.STR,
+                type=OpenApiTypes.FLOAT,
                 location=OpenApiParameter.QUERY,
                 required=True,
                 description="Geographical latitude of the center location for the map",
             ),
             OpenApiParameter(
                 name="longitude",
-                type=OpenApiTypes.STR,
+                type=OpenApiTypes.FLOAT,
                 location=OpenApiParameter.QUERY,
                 required=True,
                 description="Geographical longitude of the center location for the map",

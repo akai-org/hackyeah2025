@@ -70,8 +70,6 @@ class BaseTransitMock:
                     },
                 )
                 print(f"User received: {resp.json()}")
-        else:
-            print("kurwa")
 
 
 class TestMock(BaseTransitMock):
@@ -125,11 +123,9 @@ test_users = [
 
 test_vehicles = [
     (
-        "test_vehicle_1",
+        "IC-2137",
         [
-            GeoLocation(latitude=50.0, longitude=20.0),
-            GeoLocation(latitude=50.0, longitude=20.0),
-            GeoLocation(latitude=50.0, longitude=20.0),
+            GeoLocation(latitude=50.06784, longitude=19.9913),
         ],
     )
 ]

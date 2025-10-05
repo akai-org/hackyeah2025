@@ -17,6 +17,7 @@ from channels.auth import AuthMiddlewareStack
 from rt_geo.wurls import websocket_urlpatterns
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "hackyeah2025_backend.settings")
+
 django_asgi_app = get_asgi_application()
 
 

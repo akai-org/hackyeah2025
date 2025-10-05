@@ -39,6 +39,7 @@ class GeoTracker:
             withcoord=True,
         )
 
+        decoded = []
         for member, coords in locations:
             decoded = [
                 {
@@ -50,5 +51,4 @@ class GeoTracker:
                 }
             ]
 
-        print(decoded)
         return decoded
