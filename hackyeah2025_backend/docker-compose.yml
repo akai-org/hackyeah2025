@@ -21,7 +21,7 @@ services:
       sh -c "python manage.py makemigrations &&
              python manage.py migrate &&
              python manage.py collectstatic --noinput &&
-             python manage.py runserver 0.0.0.0:8000"
+             daphne -b 0.0.0.0 -p 8000 hackyeah2025_backend.asgi:application"
     volumes:
       - .:/app
     ports:
@@ -43,8 +43,8 @@ services:
     ports:
       - "6379:6379"
     volumes:
-      - cache:/data
+      - redis_data:/data
 
 volumes:
   postgres_data:
-  redis:
+  redis_data:
