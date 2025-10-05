@@ -121,6 +121,37 @@ class ConnectionSerializer(serializers.Serializer):
     next_journeys = JourneySerializer(many=True, read_only=True)
 
 
+class TransferSegmentSerializer(serializers.Serializer):
+    """Serializer for a single segment of a journey with transfers"""
+    route = RouteSerializer(read_only=True)
+    departure_station = StationSerializer(read_only=True)
+    arrival_station = StationSerializer(read_only=True)
+    departure_time = serializers.TimeField(read_only=True)
+    arrival_time = serializers.TimeField(read_only=True)
+    travel_time_minutes = serializers.IntegerField(read_only=True)
+    distance_km = serializers.DecimalField(max_digits=8, decimal_places=2, read_only=True)
+    stops_count = serializers.IntegerField(read_only=True)
+    route_points = RoutePointSerializer(many=True, read_only=True)
+
+    # Transfer information (null for first segment)
+    transfer_station = StationSerializer(read_only=True, allow_null=True)
+    waiting_time_minutes = serializers.IntegerField(read_only=True, allow_null=True)
+
+
+class ConnectionWithTransfersSerializer(serializers.Serializer):
+    """Serializer for connection with transfers"""
+    segments = TransferSegmentSerializer(many=True, read_only=True)
+    total_travel_time_minutes = serializers.IntegerField(read_only=True)
+    total_waiting_time_minutes = serializers.IntegerField(read_only=True)
+    total_distance_km = serializers.DecimalField(max_digits=8, decimal_places=2, read_only=True)
+    total_stops_count = serializers.IntegerField(read_only=True)
+    transfers_count = serializers.IntegerField(read_only=True)
+    departure_station = StationSerializer(read_only=True)
+    arrival_station = StationSerializer(read_only=True)
+    departure_time = serializers.TimeField(read_only=True)
+    arrival_time = serializers.TimeField(read_only=True)
+
+
 class ReportTypeSerializer(serializers.ModelSerializer):
     """Serializer for ReportType model"""
 

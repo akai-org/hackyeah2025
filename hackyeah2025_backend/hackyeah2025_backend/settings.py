@@ -43,9 +43,11 @@ INSTALLED_APPS = [
     "transport",
     "report",
     "userstats",
+    "corsheaders",
 ]
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -93,7 +95,6 @@ DATABASES = {
 
 LLM_API_KEY = os.getenv("LLM_API_KEY")
 
-
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
 
@@ -112,6 +113,14 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("localhost", 6379)],  # replace with redis when deploying
+        },
+    },
+}
 
 # Internationalization
 # https://docs.djangoproject.com/en/4.2/topics/i18n/
@@ -165,3 +174,5 @@ SPECTACULAR_SETTINGS = {
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
 }
+
+CORS_ALLOW_ALL_ORIGINS = True

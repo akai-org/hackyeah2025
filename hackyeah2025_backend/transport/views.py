@@ -7,7 +7,11 @@ from django.db.models import Sum
 from datetime import datetime, timedelta
 
 from transport.models import Station, Route, RoutePoint, Journey
-from transport.serializers import StationSerializer, ConnectionSerializer
+from transport.serializers import (
+    StationSerializer,
+    ConnectionSerializer,
+    ConnectionWithTransfersSerializer
+)
 
 
 class StationListView(generics.ListAPIView):
@@ -85,29 +89,51 @@ class ConnectionSearchView(APIView):
             return stations_result
         from_station, to_station = stations_result
 
+        # First, try to find direct connections
         common_route_ids = self._find_common_routes(from_station_id, to_station_id)
-        if not common_route_ids:
-            return self._empty_response('No direct connections found between these stations')
 
-        connections = self._build_connections(
-            common_route_ids,
+        if common_route_ids:
+            connections = self._build_connections(
+                common_route_ids,
+                from_station_id,
+                to_station_id,
+                from_station,
+                to_station
+            )
+
+            if connections:
+                connections.sort(key=lambda x: x['travel_time_minutes'])
+                serializer = ConnectionSerializer(connections, many=True)
+                return Response({
+                    'direct_connections': serializer.data,
+                    'connections_with_transfers': [],
+                    'count': len(connections),
+                    'message': 'Direct connections found successfully'
+                }, status=status.HTTP_200_OK)
+
+        # If no direct connections, search for connections with transfers (up to 3 trains)
+        connections_with_transfers = self._find_connections_with_transfers(
             from_station_id,
             to_station_id,
             from_station,
-            to_station
+            to_station,
+            max_transfers=2  # 2 transfers = 3 trains total
         )
 
-        if not connections:
-            return self._empty_response('No valid connections found (routes may go in opposite direction)')
+        if connections_with_transfers:
+            # Sort by total time (travel + waiting)
+            connections_with_transfers.sort(
+                key=lambda x: x['total_travel_time_minutes'] + x['total_waiting_time_minutes']
+            )
+            serializer = ConnectionWithTransfersSerializer(connections_with_transfers, many=True)
+            return Response({
+                'direct_connections': [],
+                'connections_with_transfers': serializer.data,
+                'count': len(connections_with_transfers),
+                'message': f'Found {len(connections_with_transfers)} connection(s) with transfers'
+            }, status=status.HTTP_200_OK)
 
-        connections.sort(key=lambda x: x['travel_time_minutes'])
-
-        serializer = ConnectionSerializer(connections, many=True)
-        return Response({
-            'connections': serializer.data,
-            'count': len(connections),
-            'message': 'Connections found successfully'
-        }, status=status.HTTP_200_OK)
+        return self._empty_response('No connections found between these stations')
 
     def _validate_parameters(self, request):
         from_station_id = request.query_params.get('from_station')
@@ -255,3 +281,392 @@ class ConnectionSearchView(APIView):
             'count': 0,
             'message': message
         }, status=status.HTTP_200_OK)
+
+    def _find_connections_with_transfers(self, from_station_id, to_station_id,
+                                        from_station, to_station, max_transfers=2):
+        """
+        Find connections with transfers using BFS approach.
+        max_transfers=2 means up to 3 trains (0, 1, or 2 transfers)
+        """
+        all_connections = []
+
+        # Try to find connections with 1 transfer (2 trains)
+        connections_1_transfer = self._find_connections_with_n_transfers(
+            from_station_id, to_station_id, from_station, to_station, 1
+        )
+        all_connections.extend(connections_1_transfer)
+
+        # Try to find connections with 2 transfers (3 trains)
+        connections_2_transfers = self._find_connections_with_n_transfers(
+            from_station_id, to_station_id, from_station, to_station, 2
+        )
+        all_connections.extend(connections_2_transfers)
+
+        return all_connections
+
+    def _find_connections_with_n_transfers(self, from_station_id, to_station_id,
+                                          from_station, to_station, num_transfers):
+        """Find connections with exactly n transfers"""
+        connections = []
+
+        if num_transfers == 1:
+            # Find connections via 1 intermediate station (2 trains)
+            connections = self._find_connections_via_one_transfer(
+                from_station_id, to_station_id, from_station, to_station
+            )
+        elif num_transfers == 2:
+            # Find connections via 2 intermediate stations (3 trains)
+            connections = self._find_connections_via_two_transfers(
+                from_station_id, to_station_id, from_station, to_station
+            )
+
+        return connections
+
+    def _find_connections_via_one_transfer(self, from_station_id, to_station_id,
+                                          from_station, to_station):
+        """Find all connections with exactly 1 transfer"""
+        connections = []
+
+        # Get all routes from departure station
+        routes_from_start = RoutePoint.objects.filter(
+            station_id=from_station_id
+        ).values_list('route_id', flat=True).distinct()
+
+        # Get all routes to destination station
+        routes_to_end = RoutePoint.objects.filter(
+            station_id=to_station_id
+        ).values_list('route_id', flat=True).distinct()
+
+        # Find all possible intermediate stations
+        for first_route_id in routes_from_start:
+            # Get all stations on the first route after departure
+            first_route_points = RoutePoint.objects.filter(
+                route_id=first_route_id
+            ).order_by('sequence')
+
+            start_point = first_route_points.filter(station_id=from_station_id).first()
+            if not start_point:
+                continue
+
+            # Get stations after the start point on this route
+            intermediate_stations = first_route_points.filter(
+                sequence__gt=start_point.sequence
+            )
+
+            for intermediate_point in intermediate_stations:
+                intermediate_station_id = intermediate_point.station_id
+
+                # Check if any second route goes from this intermediate station to destination
+                for second_route_id in routes_to_end:
+                    if second_route_id == first_route_id:
+                        continue  # Skip same route
+
+                    # Check if second route stops at intermediate station
+                    second_route_points = RoutePoint.objects.filter(
+                        route_id=second_route_id
+                    ).order_by('sequence')
+
+                    intermediate_on_second = second_route_points.filter(
+                        station_id=intermediate_station_id
+                    ).first()
+
+                    end_point = second_route_points.filter(
+                        station_id=to_station_id
+                    ).first()
+
+                    if intermediate_on_second and end_point:
+                        # Validate direction on second route
+                        if intermediate_on_second.sequence < end_point.sequence:
+                            # Build the connection with transfer
+                            connection = self._build_connection_with_transfer(
+                                first_route_id, second_route_id,
+                                from_station_id, intermediate_station_id, to_station_id,
+                                from_station, to_station
+                            )
+                            if connection:
+                                connections.append(connection)
+
+        return connections
+
+    def _find_connections_via_two_transfers(self, from_station_id, to_station_id,
+                                           from_station, to_station):
+        """Find all connections with exactly 2 transfers (3 trains)"""
+        connections = []
+
+        # Get all routes from departure station
+        routes_from_start = RoutePoint.objects.filter(
+            station_id=from_station_id
+        ).values_list('route_id', flat=True).distinct()
+
+        for first_route_id in routes_from_start:
+            first_route_points = RoutePoint.objects.filter(
+                route_id=first_route_id
+            ).order_by('sequence')
+
+            start_point = first_route_points.filter(station_id=from_station_id).first()
+            if not start_point:
+                continue
+
+            # Get stations after the start point on first route
+            first_intermediate_stations = first_route_points.filter(
+                sequence__gt=start_point.sequence
+            )
+
+            for first_intermediate_point in first_intermediate_stations:
+                first_transfer_id = first_intermediate_point.station_id
+
+                # Find routes that pass through first transfer station (excluding first route)
+                second_routes = RoutePoint.objects.filter(
+                    station_id=first_transfer_id
+                ).exclude(route_id=first_route_id).values_list('route_id', flat=True).distinct()
+
+                for second_route_id in second_routes:
+                    second_route_points = RoutePoint.objects.filter(
+                        route_id=second_route_id
+                    ).order_by('sequence')
+
+                    first_transfer_on_second = second_route_points.filter(
+                        station_id=first_transfer_id
+                    ).first()
+
+                    if not first_transfer_on_second:
+                        continue
+
+                    # Get stations after first transfer on second route
+                    second_intermediate_stations = second_route_points.filter(
+                        sequence__gt=first_transfer_on_second.sequence
+                    )
+
+                    for second_intermediate_point in second_intermediate_stations:
+                        second_transfer_id = second_intermediate_point.station_id
+
+                        if second_transfer_id == to_station_id:
+                            continue  # Skip if this is the destination
+
+                        # Find routes from second transfer to destination (excluding first two routes)
+                        third_routes = RoutePoint.objects.filter(
+                            station_id=second_transfer_id
+                        ).exclude(
+                            route_id__in=[first_route_id, second_route_id]
+                        ).values_list('route_id', flat=True).distinct()
+
+                        for third_route_id in third_routes:
+                            third_route_points = RoutePoint.objects.filter(
+                                route_id=third_route_id
+                            ).order_by('sequence')
+
+                            second_transfer_on_third = third_route_points.filter(
+                                station_id=second_transfer_id
+                            ).first()
+
+                            end_point = third_route_points.filter(
+                                station_id=to_station_id
+                            ).first()
+
+                            if second_transfer_on_third and end_point:
+                                # Validate direction on third route
+                                if second_transfer_on_third.sequence < end_point.sequence:
+                                    # Build the connection with 2 transfers
+                                    connection = self._build_connection_with_two_transfers(
+                                        first_route_id, second_route_id, third_route_id,
+                                        from_station_id, first_transfer_id, second_transfer_id, to_station_id,
+                                        from_station, to_station
+                                    )
+                                    if connection:
+                                        connections.append(connection)
+
+        return connections
+
+    def _build_connection_with_transfer(self, first_route_id, second_route_id,
+                                       from_station_id, transfer_station_id, to_station_id,
+                                       from_station, to_station):
+        """Build a connection object with 1 transfer"""
+        try:
+            # Get stations
+            transfer_station = Station.objects.get(id=transfer_station_id)
+
+            # Build first segment
+            first_segment = self._build_segment(
+                first_route_id, from_station_id, transfer_station_id,
+                from_station, transfer_station
+            )
+
+            if not first_segment:
+                return None
+
+            # Build second segment
+            second_segment = self._build_segment(
+                second_route_id, transfer_station_id, to_station_id,
+                transfer_station, to_station
+            )
+
+            if not second_segment:
+                return None
+
+            # Calculate waiting time at transfer station
+            waiting_time = self._calculate_travel_time(
+                first_segment['arrival_time'],
+                second_segment['departure_time']
+            )
+
+            # If negative waiting time, the connection is not possible
+            if waiting_time < 0:
+                waiting_time += 24 * 60  # Add 24 hours if it's next day
+
+            # Add transfer info to second segment
+            second_segment['transfer_station'] = transfer_station
+            second_segment['waiting_time_minutes'] = waiting_time
+
+            # Calculate totals
+            total_travel_time = (first_segment['travel_time_minutes'] +
+                               second_segment['travel_time_minutes'])
+            total_distance = (first_segment['distance_km'] +
+                            second_segment['distance_km'])
+            total_stops = (first_segment['stops_count'] +
+                         second_segment['stops_count'])
+
+            return {
+                'segments': [first_segment, second_segment],
+                'total_travel_time_minutes': total_travel_time,
+                'total_waiting_time_minutes': waiting_time,
+                'total_distance_km': total_distance,
+                'total_stops_count': total_stops,
+                'transfers_count': 1,
+                'departure_station': from_station,
+                'arrival_station': to_station,
+                'departure_time': first_segment['departure_time'],
+                'arrival_time': second_segment['arrival_time'],
+            }
+        except Exception as e:
+            return None
+
+    def _build_connection_with_two_transfers(self, first_route_id, second_route_id, third_route_id,
+                                            from_station_id, first_transfer_id, second_transfer_id, to_station_id,
+                                            from_station, to_station):
+        """Build a connection object with 2 transfers"""
+        try:
+            # Get transfer stations
+            first_transfer_station = Station.objects.get(id=first_transfer_id)
+            second_transfer_station = Station.objects.get(id=second_transfer_id)
+
+            # Build three segments
+            first_segment = self._build_segment(
+                first_route_id, from_station_id, first_transfer_id,
+                from_station, first_transfer_station
+            )
+
+            if not first_segment:
+                return None
+
+            second_segment = self._build_segment(
+                second_route_id, first_transfer_id, second_transfer_id,
+                first_transfer_station, second_transfer_station
+            )
+
+            if not second_segment:
+                return None
+
+            third_segment = self._build_segment(
+                third_route_id, second_transfer_id, to_station_id,
+                second_transfer_station, to_station
+            )
+
+            if not third_segment:
+                return None
+
+            # Calculate waiting times at transfer stations
+            first_waiting_time = self._calculate_travel_time(
+                first_segment['arrival_time'],
+                second_segment['departure_time']
+            )
+
+            if first_waiting_time < 0:
+                first_waiting_time += 24 * 60
+
+            second_waiting_time = self._calculate_travel_time(
+                second_segment['arrival_time'],
+                third_segment['departure_time']
+            )
+
+            if second_waiting_time < 0:
+                second_waiting_time += 24 * 60
+
+            # Add transfer info to segments
+            second_segment['transfer_station'] = first_transfer_station
+            second_segment['waiting_time_minutes'] = first_waiting_time
+
+            third_segment['transfer_station'] = second_transfer_station
+            third_segment['waiting_time_minutes'] = second_waiting_time
+
+            # Calculate totals
+            total_travel_time = (first_segment['travel_time_minutes'] +
+                               second_segment['travel_time_minutes'] +
+                               third_segment['travel_time_minutes'])
+            total_waiting_time = first_waiting_time + second_waiting_time
+            total_distance = (first_segment['distance_km'] +
+                            second_segment['distance_km'] +
+                            third_segment['distance_km'])
+            total_stops = (first_segment['stops_count'] +
+                         second_segment['stops_count'] +
+                         third_segment['stops_count'])
+
+            return {
+                'segments': [first_segment, second_segment, third_segment],
+                'total_travel_time_minutes': total_travel_time,
+                'total_waiting_time_minutes': total_waiting_time,
+                'total_distance_km': total_distance,
+                'total_stops_count': total_stops,
+                'transfers_count': 2,
+                'departure_station': from_station,
+                'arrival_station': to_station,
+                'departure_time': first_segment['departure_time'],
+                'arrival_time': third_segment['arrival_time'],
+            }
+        except Exception as e:
+            return None
+
+    def _build_segment(self, route_id, from_station_id, to_station_id,
+                      from_station, to_station):
+        """Build a single segment of a journey"""
+        try:
+            route = Route.objects.select_related('carrier', 'vehicle').get(id=route_id)
+
+            departure_point = RoutePoint.objects.filter(
+                route_id=route_id,
+                station_id=from_station_id
+            ).first()
+
+            arrival_point = RoutePoint.objects.filter(
+                route_id=route_id,
+                station_id=to_station_id
+            ).first()
+
+            if not self._is_valid_route_direction(departure_point, arrival_point):
+                return None
+
+            travel_time = self._calculate_travel_time(
+                departure_point.scheduled_departure_time,
+                arrival_point.scheduled_arrival_time
+            )
+
+            route_points = self._get_route_points(
+                route_id, departure_point.sequence, arrival_point.sequence
+            )
+
+            distance = self._calculate_distance(route_points, departure_point.sequence)
+
+            return {
+                'route': route,
+                'departure_station': from_station,
+                'arrival_station': to_station,
+                'departure_time': departure_point.scheduled_departure_time,
+                'arrival_time': arrival_point.scheduled_arrival_time,
+                'travel_time_minutes': travel_time,
+                'distance_km': distance,
+                'stops_count': route_points.count() - 2,
+                'route_points': list(route_points),
+                'transfer_station': None,
+                'waiting_time_minutes': None,
+            }
+        except Exception as e:
+            return None
