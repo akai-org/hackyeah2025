@@ -24,8 +24,7 @@ class BaseTransitMock:
             for loc in route:
                 await asyncio.sleep(self.transmit_interval)
                 v_loc = VehicleLocation(
-                    latitude=loc.latitude,
-                    longitude=loc.longitude,
+                    location=f"{loc.latitude},{loc.longitude}",
                     vehicle_id=vehicle_id,
                 )
                 await ws.send(v_loc.model_dump_json())
@@ -113,7 +112,7 @@ class TestMock(BaseTransitMock):
 test_users = [
     UserData(
         user_id="test_user",
-        location=GeoLocation(latitude=20.0, longitude=50.0),
+        location="20.0,50.0",
         zoom=12,
         width=800,
         height=600,
@@ -124,9 +123,9 @@ test_vehicles = [
     (
         "test_vehicle_1",
         [
-            GeoLocation(latitude=20.0, longitude=50.0),
-            GeoLocation(latitude=20.1, longitude=50.1),
-            GeoLocation(latitude=20.2, longitude=50.2),
+            "20.0,50.0",
+            "20.1,50.1",
+            "20.2,50.2",
         ],
     )
 ]

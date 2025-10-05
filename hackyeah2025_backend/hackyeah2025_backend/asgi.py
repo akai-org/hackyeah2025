@@ -9,14 +9,16 @@ https://docs.djangoproject.com/en/4.2/howto/deployment/asgi/
 
 import os
 
+
 from django.core.asgi import get_asgi_application
+
 from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.auth import AuthMiddlewareStack
-from rt_geo.urls import websocket_urlpatterns
+from rt_geo.wurls import websocket_urlpatterns
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "hackyeah2025_backend.settings")
-
 django_asgi_app = get_asgi_application()
+
 
 application = ProtocolTypeRouter(
     {
