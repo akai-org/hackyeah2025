@@ -1,7 +1,7 @@
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from drf_spectacular.utils import extend_schema, OpenApiParameter
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse
 from drf_spectacular.types import OpenApiTypes
 from rt_geo.models import UserData, GeoLocation
 from rt_geo.geo_tracker import GeoTracker
@@ -19,11 +19,18 @@ class GeoVehicleView(APIView):
         description="Retrieve the latest geolocation data for vehicles based on user parameters",
         parameters=[
             OpenApiParameter(
-                name="location",
+                name="latitude",
                 type=OpenApiTypes.STR,
                 location=OpenApiParameter.QUERY,
                 required=True,
-                description="Center location for the map in 'lat,lng' format",
+                description="Geographical latitude of the center location for the map",
+            ),
+            OpenApiParameter(
+                name="longitude",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description="Geographical longitude of the center location for the map",
             ),
             OpenApiParameter(
                 name="zoom",
@@ -48,7 +55,28 @@ class GeoVehicleView(APIView):
             ),
         ],
         responses={
-            200: OpenApiTypes.STR,
+            200: OpenApiResponse(
+                description="Vehicle info response",
+                response={
+                    "type": "object",
+                    "properties": {
+                        "locations": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "vehicle_id": {
+                                        "type": "string",
+                                        "example": "IC-2137",
+                                    },
+                                    "longitude": {"type": "number", "example": 19.94},
+                                    "latitude": {"type": "number", "example": 50.06},
+                                },
+                            },
+                        },
+                    },
+                },
+            ),
             400: OpenApiTypes.STR,
         },
     )
