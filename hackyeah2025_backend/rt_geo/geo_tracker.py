@@ -1,5 +1,5 @@
 # listen to registered fleets and update goespatial data of objects in redis
-from redis.asyncio import Redis
+from redis import Redis
 from rt_geo.models import GeoLocation, VehicleLocation
 import math
 
@@ -10,7 +10,7 @@ class GeoTracker:
     """
 
     def __init__(self):
-        self.redis = Redis(host="redis", port=6379, db=0)
+        self.redis = Redis()
 
     def get_latest_location(
         self, location: GeoLocation, zoom: int, map_width: int, map_height: int
@@ -27,18 +27,28 @@ class GeoTracker:
         width_km = (map_width * meters_per_pixel) / 1000
         height_km = (map_height * meters_per_pixel) / 1000
 
-        search_width = width_km
-        search_height = height_km
+        print(f"width_km: {width_km}, height_km: {height_km}")
+
         locations = self.redis.geosearch(
             "vehicles",
             longitude=location.longitude,
             latitude=location.latitude,
-            width=search_width,
-            height=search_height,
+            width=width_km,
+            height=height_km,
+            unit="km",
             withcoord=True,
         )
 
-        return [
-            VehicleLocation(vehicle_id=vid, latitude=lat, longitude=lon)
-            for vid, (lon, lat) in locations.docs()
-        ]
+        for member, coords in locations:
+            decoded = [
+                {
+                    "vehicle_id": member.decode("utf-8")
+                    if isinstance(member, bytes)
+                    else member,
+                    "longitude": coords[0],
+                    "latitude": coords[1],
+                }
+            ]
+
+        print(decoded)
+        return decoded

@@ -29,9 +29,8 @@ class VehicleConsumer(AsyncWebsocketConsumer):
         await self.rt_db.geoadd(
             "vehicles",
             values=[
-                vehicle_location.longitude,
-                vehicle_location.latitude,
+                vehicle_location.location.longitude,
+                vehicle_location.location.latitude,
                 vehicle_location.vehicle_id,
             ],
-            xx=True,
         )

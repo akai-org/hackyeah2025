@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
-from rt_geo.models import UserData
+from rt_geo.models import UserData, GeoLocation
 from rt_geo.geo_tracker import GeoTracker
 
 
@@ -55,15 +55,22 @@ class GeoVehicleView(APIView):
     def get(self, request, *args, **kwargs):
         try:
             data = request.query_params
-            user_data = UserData.model_validate(data)
+
+            latitude = float(data.get("latitude"))
+            longitude = float(data.get("longitude"))
+            location = GeoLocation(latitude=latitude, longitude=longitude)
+            zoom = int(data.get("zoom"))
+            width = int(data.get("map_width"))
+            height = int(data.get("map_height"))
+
             locations = self.tracker.get_latest_location(
-                location=user_data.location,
-                zoom=user_data.zoom,
-                map_width=user_data.width,
-                map_height=user_data.height,
+                location=location,
+                zoom=zoom,
+                map_width=width,
+                map_height=height,
             )
             return Response(
-                {"locations": [loc.model_dump() for loc in locations]},
+                {"locations": locations},
                 status=status.HTTP_200_OK,
             )
         except Exception as e:

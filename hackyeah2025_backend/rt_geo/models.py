@@ -1,4 +1,4 @@
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel
 
 
 class GeoLocation(BaseModel):
@@ -8,7 +8,7 @@ class GeoLocation(BaseModel):
 
 class VehicleLocation(BaseModel):
     vehicle_id: str
-    location: str
+    location: GeoLocation
 
 
 class UserData(BaseModel):
